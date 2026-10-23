@@ -9,13 +9,12 @@ RUN apt-get update \
 
 COPY --from=docker.io/astral/uv:0.13.5 /uv /bin/
 
-COPY . /src
-
 ENV PATH="/virtualenv/bin:$PATH" \
     UV_COMPILE_BYTECODE="1" \
     UV_LOCKED="1" \
     UV_NO_CACHE="1" \
     UV_NO_DEFAULT_GROUPS="1" \
+    UV_NO_EDITABLE="1" \
     UV_PROJECT_ENVIRONMENT="/virtualenv" \
     UV_PYTHON_DOWNLOADS="never" \
     UV_WORKING_DIR="/src" \
@@ -29,11 +28,12 @@ VOLUME /config
 WORKDIR /config
 ENTRYPOINT ["query-exporter"]
 
-HEALTHCHECK --interval=3s --timeout=3s CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9560/', timeout=2)"]
+HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --start-interval=1s CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9560/', timeout=2)"]
 
 
 FROM runtime AS base
 
+COPY . /src
 RUN uv sync
 
 USER query-exporter
@@ -47,6 +47,7 @@ RUN apt-get update \
         pkg-config \
         default-libmysqlclient-dev \
         libpq-dev
+COPY . /src
 RUN uv sync --group=docker-dbs
 
 
