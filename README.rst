@@ -234,16 +234,9 @@ additional database drivers. This can be used as a base image for installing onl
 
    FROM adonato/query-exporter:<version>-base
 
-   USER root
-   RUN apt-get update \
-       && apt-get install -y --no-install-recommends <my database driver> \
-       && rm -rf /var/lib/apt/lists/*
+   RUN apt-get install -y <my database driver>
    RUN uv pip install -r <my-requirements-file>
-   USER query-exporter
    ...
-
-Images run as the unprivileged ``query-exporter`` user (UID ``10001``), so
-files in the ``/config`` volume must be readable by it.
 
 
 Contributing
