@@ -1,4 +1,4 @@
-FROM python:3.14-slim-trixie AS base
+FROM python:3.14-slim-trixie AS runtime
 
 RUN apt-get update \
     && apt-get full-upgrade -y \
@@ -21,8 +21,6 @@ ENV PATH="/virtualenv/bin:$PATH" \
     UV_WORKING_DIR="/src" \
     VIRTUAL_ENV="/virtualenv"
 
-RUN uv sync
-
 # IPv6 support is not enabled by default, only bind IPv4
 ENV QE_HOST="0.0.0.0"
 
@@ -33,12 +31,16 @@ ENTRYPOINT ["query-exporter"]
 
 HEALTHCHECK --interval=3s --timeout=3s CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9560/', timeout=2)"]
 
+
+FROM runtime AS base
+
+RUN uv sync
+
 USER query-exporter
 
 
-FROM base AS full-builder
+FROM runtime AS full-builder
 
-USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
@@ -48,9 +50,8 @@ RUN apt-get update \
 RUN uv sync --group=docker-dbs
 
 
-FROM base AS full
+FROM runtime AS full
 
-USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libmariadb3 \
