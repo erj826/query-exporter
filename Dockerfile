@@ -1,8 +1,8 @@
-FROM python:3.14-slim AS base
+FROM python:3.14-slim AS runtime
 
 RUN apt-get update && apt-get full-upgrade -y
 RUN python -m pip uninstall -y pip \
-    && rm -rf /usr/local/lib/python3.14/ensurepip/_bundled
+    && rm -rf "$(python -c 'import ensurepip, os; print(os.path.dirname(ensurepip.__file__))')/_bundled"
 
 COPY --from=docker.io/astral/uv:latest /uv /bin/
 
@@ -18,8 +18,6 @@ ENV PATH="/virtualenv/bin:$PATH" \
     UV_WORKING_DIR="/src" \
     VIRTUAL_ENV="/virtualenv"
 
-RUN uv sync
-
 # IPv6 support is not enabled by default, only bind IPv4
 ENV QE_HOST="0.0.0.0"
 
@@ -31,20 +29,27 @@ ENTRYPOINT ["query-exporter"]
 HEALTHCHECK --interval=3s --timeout=3s CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9560/', timeout=2)"]
 
 
-FROM base AS full
+FROM runtime AS base
 
-ENV BUILD_DEPS=" \
+RUN uv sync
+
+
+FROM runtime AS full-builder
+
+RUN apt-get install -y --no-install-recommends \
     build-essential \
     pkg-config \
     default-libmysqlclient-dev \
-    libpq-dev"
-RUN apt-get update && apt-get full-upgrade -y
-RUN apt-get install -y --no-install-recommends $BUILD_DEPS
+    libpq-dev
 
 RUN uv sync --group=docker-dbs
+
+
+FROM runtime AS full
 
 RUN apt-get install -y --no-install-recommends \
     libmariadb3 \
     libpq5 \
     libxml2
-RUN apt-get purge -y $BUILD_DEPS && apt-get autoremove --purge -y
+
+COPY --from=full-builder /virtualenv /virtualenv
